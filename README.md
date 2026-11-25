@@ -1,24 +1,25 @@
-# testing-for-readme
+```mermaid
 flowchart TD
-    subgraph Flags["フラグ状態"]
-        F1["flag_pii_enabled = true"]
-        F2["flag_strict_mode = false"]
-        F3["flag_retry_exhausted = false"]
+    subgraph Flags["システムフラグ状態"]
+        F1["メンテナンスモード: OFF"]
+        F2["セキュリティチェック: ON"]
     end
 
-    Start(["ジョブ受信"]) --> OR1{"OR判定:\nPII検知 または strict_mode"}
-    F1 -.-> OR1
-    F2 -.-> OR1
+    Start(["ジョブ受信"]) --> MCheck{"メンテナンス中？"}
+    F1 -.-> MCheck
+    MCheck -->|Yes| EndMaint(["処理中断"])
+    MCheck -->|No| SCheck{"セキュリティ検査必要？"}
+    F2 -.-> SCheck
+    SCheck -->|Yes| Security["セキュリティ検査"]
+    SCheck -->|No| Main
 
-    OR1 -->|Yes| AND1{"AND判定:\nマスキング成功 かつ\nスキーマ検証OK"}
-    OR1 -->|No| FastPath["通常処理へスキップ"]
+    Security --> Main["メイン処理実行"]
+    Main --> Result{"実行結果判定"}
 
-    AND1 -->|Yes| Save["S3へ保存・完了"]
-    AND1 -->|No| RetryCheck{"再試行可能？\n(retry_count < max_retry)"}
-
-    RetryCheck -->|Yes| Requeue["SQSへ再投入\n(retry_count + 1)"]
-    RetryCheck -->|No| DLQCheck{"AND判定:\nDLQ有効 かつ\nflag_retry_exhausted = true"}
-    F3 -.-> DLQCheck
-
-    DLQCheck -->|Yes| ToDLQ["DLQへ退避"]
-    DLQCheck -->|No| Alert["エラーログ出力・通知"]
+    Result -->|SUCCESS| Done(["完了"])
+    Result -->|FATAL_ERROR| Alert(["アラート通知"])
+    
+    Result -->|RETRYABLE_ERROR| Retry{"再試行回数 < 3 ?"}
+    Retry -->|Yes| Requeue(["SQSへ再投入"])
+    Requeue --> Main
+    Retry -->|No| DLQ(["DLQへ退避"])
