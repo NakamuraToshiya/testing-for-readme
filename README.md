@@ -1,25 +1,12 @@
-```mermaid
-flowchart TD
-    subgraph Flags["システムフラグ状態"]
-        F1["メンテナンスモード: OFF"]
-        F2["セキュリティチェック: ON"]
-    end
+flowchart LR
+    classDef gate fill:#eef4ff,stroke:#2b5c8f,stroke-width:2px,color:#111;
+    classDef signal fill:#f8f9fa,stroke:#555,stroke-width:1.5px,color:#111;
 
-    Start(["ジョブ受信"]) --> MCheck{"メンテナンス中？"}
-    F1 -.-> MCheck
-    MCheck -->|Yes| EndMaint(["処理中断"])
-    MCheck -->|No| SCheck{"セキュリティ検査必要？"}
-    F2 -.-> SCheck
-    SCheck -->|Yes| Security["セキュリティ検査"]
-    SCheck -->|No| Main
+    A["条件A\n(入力)"]:::signal --> G_AND{{"& (AND)\n両方成立"}}:::gate
+    B["条件B\n(入力)"]:::signal --> G_AND
 
-    Security --> Main["メイン処理実行"]
-    Main --> Result{"実行結果判定"}
+    C["条件C\n(入力)"]:::signal --> G_OR{{"≥1 (OR)\nいずれか成立"}}:::gate
+    G_AND --> G_OR
 
-    Result -->|SUCCESS| Done(["完了"])
-    Result -->|FATAL_ERROR| Alert(["アラート通知"])
-    
-    Result -->|RETRYABLE_ERROR| Retry{"再試行回数 < 3 ?"}
-    Retry -->|Yes| Requeue(["SQSへ再投入"])
-    Requeue --> Main
-    Retry -->|No| DLQ(["DLQへ退避"])
+    G_OR --> G_NOT["¬ (NOT)\n反転"]:::gate
+    G_NOT --> OUT["出力アクション"]:::signal
